@@ -1,4 +1,4 @@
-package com.crypto.crypto_library;
+package comet.crypto.crypto_library;
 
 import org.junit.Test;
 

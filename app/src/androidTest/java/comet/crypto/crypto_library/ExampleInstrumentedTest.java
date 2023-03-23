@@ -1,4 +1,4 @@
-package com.crypto.crypto_library;
+package comet.crypto.crypto_library;
 
 import android.content.Context;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("com.crypto.crypto_library", appContext.getPackageName());
+        assertEquals("comet.crypto.crypto_library", appContext.getPackageName());
     }
 }
