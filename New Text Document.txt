@@ -1,0 +1,13 @@
+# Ignore Gradle build files and directories
+.gradle/
+build/
+app/build/
+
+# Ignore IDE-specific files and directories
+*.iml
+.idea/
+*.ipr
+*.iws
+.idea_modules/
+
+# Exclude any other files or directories that are not necessary for your library
