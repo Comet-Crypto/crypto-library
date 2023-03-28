@@ -1,19 +1,24 @@
+apply plugin: "java"
 apply plugin: 'maven-publish'
 apply plugin: 'signing'
 
 
-task androidSourcesJar(type: Jar) {
-    archiveClassifier.set('sources')
-    if (project.plugins.findPlugin("com.android.library")) {
-        // For android libraries
-        from android.sourceSets.main.java.srcDirs
-        from android.sourceSets.main.kotlin.srcDirs
-    } else {
-
-        from sourceSets.main.java.srcDirs
-
-    }
+task javadocJar1(type: Jar, dependsOn: javadoc) {
+    archiveClassifier.set('javadoc')
+    from javadoc.destinationDir
 }
+
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+
+//artifacts {
+//    archives androidSourcesJar
+//}
+
 group = PUBLISH_GROUP_ID
 version = PUBLISH_VERSION
 
@@ -35,14 +40,14 @@ afterEvaluate {
                     from components.java
                 }
 
-                artifact androidSourcesJar
-//                artifacts javaDocJar
+               // artifact androidSourcesJar
+//                artifact javadocJar
 
                 // Mostly self-explanatory metadata
                 pom {
                     name = PUBLISH_ARTIFACT_ID
-                    description = "The calculator Android library"
-                    url = 'https://bitbucket.org/bitbucket_username/mavenpublishlibrary/src/master/'
+                    description = "The  crypto  library"
+                    url = 'https://io.github.comet-crypto/lib/src/master/'
                     licenses {
                         license {
                             name = 'MIT license'
@@ -51,7 +56,7 @@ afterEvaluate {
                     }
                     developers {
                         developer {
-                            id = 'email_without_extension'
+                            id = 'almogi'
                             name = 'username'
                             email = 'email'
                         }
