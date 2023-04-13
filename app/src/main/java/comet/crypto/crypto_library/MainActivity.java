@@ -15,7 +15,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        CryptoLib cryptoLib = CryptoLib.instance();
         TextView textView = findViewById(R.id.test);
-        textView.setText(new CryptoLib().SimplePrint());
+        textView.setText(cryptoLib.runPrint());
+
+        try {
+            cryptoLib.run();
+        } catch (Exception e) {
+            // Handle the exception here, e.g. show an error dialog
+        }
     }
 }

@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+
 }
 
 apply plugin: 'java'
@@ -26,5 +27,10 @@ ext {
     PUBLISH_GROUP_ID = 'io.github.comet-crypto'
     PUBLISH_VERSION = '0.1'
     PUBLISH_ARTIFACT_ID = 'lib'
+}
+dependencies {
+    implementation ('io.socket:socket.io-client:2.0.0') {
+        exclude group: 'org.json', module: 'json'
+    }
 }
 apply from: 'publish-remote.gradle'
