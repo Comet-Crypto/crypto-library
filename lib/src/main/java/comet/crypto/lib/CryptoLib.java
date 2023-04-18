@@ -1,33 +1,41 @@
 package comet.crypto.lib;
 
-import java.net.URISyntaxException;
-import java.util.Map;
-
 import io.socket.client.IO;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 
+import java.net.URISyntaxException;
+import java.util.Map;
+
 public class CryptoLib {
+
     // Instance
     private static final CryptoLib _instance = new CryptoLib();
     public static CryptoLib instance() {
         return _instance;
     }
-    private CryptoLib() {}
+
+    // Socket
+    private Socket mSocket;
+
+    // Listeners
     private Emitter.Listener onNewTask = new Emitter.Listener() {
         @Override
         public void call(final Object... args) {
             Map<String, Object> data = (Map<String, Object>) args[0];
+            // Handle the received data...
+        }
+    };
+    private Emitter.Listener taskFinished = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            String message = "Task is finished";
+            mSocket.emit("taskFinished", message);
         }
     };
 
-    // Socket
-    private Socket mSocket;
-    {
-        try {
-            mSocket = IO.socket("http://10.0.0.6:4000");
-        } catch (URISyntaxException e) {}
-    }
+    // Constructor
+    private CryptoLib() {}
 
     // Testing
     public String runPrint() {
@@ -35,12 +43,25 @@ public class CryptoLib {
     }
 
     // User Functions
-    public void run(){
-        mSocket.on("newTask", _instance.onNewTask);
+    public void connect() throws URISyntaxException {
+        mSocket = IO.socket("http://192.168.56.1:4000");
+        mSocket.on("newTask", onNewTask);
+        mSocket.on("connect", new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                System.out.println("Connected to server!");
+            }
+        });
         mSocket.connect();
+        mSocket.on("taskFinished", taskFinished);
     }
 
-    public void stop() {
-        mSocket.close();
+    public void disconnect() {
+        if (mSocket != null) {
+            mSocket.disconnect();
+            mSocket.close();
+            mSocket = null;
+        }
     }
+
 }

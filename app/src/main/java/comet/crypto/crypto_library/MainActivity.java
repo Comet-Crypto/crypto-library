@@ -21,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
         textView.setText(cryptoLib.runPrint());
 
         try {
-            cryptoLib.run();
+            cryptoLib.connect();
         } catch (Exception e) {
             // Handle the exception here, e.g. show an error dialog
         }
