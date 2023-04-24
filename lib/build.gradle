@@ -29,6 +29,7 @@ ext {
     PUBLISH_ARTIFACT_ID = 'lib'
 }
 dependencies {
+    implementation 'com.google.code.gson:gson:2.8.9'
     implementation ('io.socket:socket.io-client:2.0.0') {
         exclude group: 'org.json', module: 'json'
     }

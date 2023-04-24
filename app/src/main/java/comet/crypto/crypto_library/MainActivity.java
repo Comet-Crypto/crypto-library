@@ -1,11 +1,14 @@
 package comet.crypto.crypto_library;
 
-import static comet.crypto.lib.CryptoLib.*;
+import android.os.Bundle;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.os.Bundle;
-import android.widget.TextView;
+import com.google.gson.JsonObject;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import comet.crypto.lib.CryptoLib;
 
@@ -20,10 +23,19 @@ public class MainActivity extends AppCompatActivity {
         TextView textView = findViewById(R.id.test);
         textView.setText(cryptoLib.runPrint());
 
-        try {
-            cryptoLib.connect();
-        } catch (Exception e) {
-            // Handle the exception here, e.g. show an error dialog
-        }
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    JsonObject json = cryptoLib.getNewTask();
+                    cryptoLib.sendTaskResult("shreking around");
+                } catch (Exception e) {
+                    System.out.println("wtf");
+                    // Handle the exception here, e.g. show an error dialog
+                }
+            }
+        });
     }
 }

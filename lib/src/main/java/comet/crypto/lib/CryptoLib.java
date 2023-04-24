@@ -1,11 +1,16 @@
 package comet.crypto.lib;
 
-import io.socket.client.IO;
-import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
-
-import java.net.URISyntaxException;
+import java.io.IOException;
 import java.util.Map;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 public class CryptoLib {
 
@@ -15,24 +20,8 @@ public class CryptoLib {
         return _instance;
     }
 
-    // Socket
-    private Socket mSocket;
-
-    // Listeners
-    private Emitter.Listener onNewTask = new Emitter.Listener() {
-        @Override
-        public void call(final Object... args) {
-            //Map<String, Object> data = (Map<String, Object>) args[0];
-            // Handle the received data...
-        }
-    };
-    private Emitter.Listener taskFinished = new Emitter.Listener() {
-        @Override
-        public void call(final Object... args) {
-            String message = "Task is finished";
-            mSocket.emit("taskFinished", message);
-        }
-    };
+    // HTTP client
+    private final OkHttpClient httpClient = new OkHttpClient();
 
     // Constructor
     private CryptoLib() {}
@@ -42,27 +31,28 @@ public class CryptoLib {
         return "CryptoLib is running.";
     }
 
-    // User Functions
-    public void connect() throws URISyntaxException {
-        mSocket = IO.socket("http://192.168.56.1:4000");
-        mSocket.on("newTask", onNewTask);
-        mSocket.on("connect", new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                mSocket.emit("taskFinished", "We Live In Tokyo, fast and furiousssss");
-
-            }
-        });
-        mSocket.connect();
-        mSocket.on("taskFinished", taskFinished);
+    public JsonObject getNewTask() throws IOException {
+        Request request = new Request.Builder()
+                .url("https://load-balancer-server.vercel.app/communication/newTask")
+                .build();
+        Response response = httpClient.newCall(request).execute();
+        String json = response.body().string();
+        JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
+        response.body().close();
+        return jsonObject;
     }
 
-    public void disconnect() {
-        if (mSocket != null) {
-            mSocket.disconnect();
-            mSocket.close();
-            mSocket = null;
-        }
+    public void sendTaskResult(String result) throws IOException {
+        Gson gson = new Gson();
+        JsonObject data = new JsonObject();
+        data.addProperty("hash",result);
+        MediaType mediaType = MediaType.parse("application/json");
+        RequestBody body = RequestBody.create(mediaType, gson.toJson(data));
+        Request request = new Request.Builder()
+                .url("https://load-balancer-server.vercel.app/communication/taskFinished")
+                .post(body)
+                .build();
+        Response response = httpClient.newCall(request).execute();
+        response.body().close();
     }
-
 }
