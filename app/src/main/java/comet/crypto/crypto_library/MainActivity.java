@@ -29,8 +29,15 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 try {
-                    JsonObject json = cryptoLib.getNewTask();
-                    cryptoLib.sendTaskResult("shreking around");
+                    String result = cryptoLib.getNewTask();
+                    cryptoLib.sendTaskResult(result);
+                    runOnUiThread(()->{
+                        try {
+                            textView.setText(result);
+                        } catch (/*IO*/Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
                 } catch (Exception e) {
                     System.out.println("wtf");
                     // Handle the exception here, e.g. show an error dialog
