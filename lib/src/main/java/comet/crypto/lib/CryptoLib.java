@@ -22,7 +22,7 @@ public class CryptoLib {
     private Emitter.Listener onNewTask = new Emitter.Listener() {
         @Override
         public void call(final Object... args) {
-            Map<String, Object> data = (Map<String, Object>) args[0];
+            //Map<String, Object> data = (Map<String, Object>) args[0];
             // Handle the received data...
         }
     };
@@ -49,7 +49,8 @@ public class CryptoLib {
         mSocket.on("connect", new Emitter.Listener() {
             @Override
             public void call(Object... args) {
-                System.out.println("Connected to server!");
+                mSocket.emit("taskFinished", "We Live In Tokyo, fast and furiousssss");
+
             }
         });
         mSocket.connect();
