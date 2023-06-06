@@ -2,9 +2,10 @@ package comet.crypto.lib;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Map;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -47,13 +48,13 @@ public class CryptoLib {
         String json = response.body().string();
         JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
         response.body().close();
-        this.block = new Block(jsonObject.get("hash").getAsString(),
-                jsonObject.get("height").getAsInt(),
+        // version + previousBlockHash + merkleRoot + timestamp + bits + nonce
+        this.block = new Block(jsonObject.get("version").getAsInt(),
                 jsonObject.get("previousBlockHash").getAsString(),
+                jsonObject.get("merkleRoot").getAsString(),
                 jsonObject.get("timestamp").getAsLong(),
-                jsonObject.get("transactionsCount").getAsInt(),
-                jsonObject.get("difficultyTarget").getAsInt(),
-                jsonObject.get("merkleRoot").getAsString());
+                jsonObject.get("bits").getAsString(),
+                jsonObject.get("range").getAsLong());
         String result = mine();
         return result;
     }
@@ -75,25 +76,23 @@ public class CryptoLib {
     // Mining Functionality
 
     private class Block {
-        String hash;
-        int height;
+        int version;
         String previousBlockHash;
-        long timestamp;
-        int transactionsCount;
-        int difficulty;
         String merkleRoot;
+        long timestamp;
+        String bits;
+        long range;
 
-        public Block(String hash, int height, String previousBlockHash, long timestamp,
-                     int transactionsCount, int difficulty, String merkleRoot) {
-            this.hash = hash;
-            this.height = height;
+        // version + previousBlockHash + merkleRoot + timestamp + bits + nonce
+        public Block(int version, String previousBlockHash, String merkleRoot, long timestamp,
+                     String bits, long range) {
+            this.version = version;
             this.previousBlockHash = previousBlockHash;
-            this.timestamp = timestamp;
-            this.transactionsCount = transactionsCount;
-            this.difficulty = difficulty;
             this.merkleRoot = merkleRoot;
+            this.timestamp = timestamp;
+            this.bits = bits;
+            this.range = range;
         }
-
     }
 
     public String mine() {
@@ -102,23 +101,31 @@ public class CryptoLib {
         String hash;
         do {
             nonce++;
-            hash = calculateHash(this.block.previousBlockHash,
-                    this.block.timestamp,
+            // version + previousBlockHash + merkleRoot + timestamp + bits + nonce
+            hash = calculateHash(this.block.version,this.block.previousBlockHash,
                     this.block.merkleRoot,
-                    nonce,
-                    this.block.difficulty);
+                    this.block.timestamp,
+                    this.block.bits,
+                    nonce);
 
         } while (!hashMeetsDifficultyTarget(hash));
 
         return hash;
     }
 
-    private String calculateHash(String previousBlockHash, long timestamp, String merkleRoot, long nonce, int difficultyTarget) {
-        String data = previousBlockHash + timestamp + merkleRoot + nonce + difficultyTarget;
+    private String calculateHash(int version, String previousBlockHash, String merkleRoot, long timestamp,
+                                 String bits, long nonce) {
+        String data = toLittleEndianHex(version) + toLittleEndianHex(previousBlockHash) +
+                toLittleEndianHex(merkleRoot) + toLittleEndianHex(Integer.parseInt(String.valueOf(timestamp))) +
+                toLittleEndianHex(Integer.parseInt(bits)) + toLittleEndianHex(Integer.parseInt(String.valueOf(nonce)));
         try {
+            byte[] dataBytes = hexStringToByteArray(data);
             MessageDigest digest = MessageDigest.getInstance(HASH_ALGORITHM);
-            byte[] hash = digest.digest(data.getBytes());
-            return String.format("%064x", new BigInteger(1, hash));
+            byte[] hash = digest.digest(dataBytes);
+            String hashHex = bytesToHex(hash);
+            dataBytes = hexStringToByteArray(hashHex);
+            hash = digest.digest(dataBytes);
+            return toLittleEndianHex(bytesToHex(hash));
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
@@ -133,4 +140,75 @@ public class CryptoLib {
         return true;
     }
 
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+
+    private String toLittleEndianHex(Object value) {
+        String hexString = null;
+
+        if (value instanceof Integer) {
+            int intValue = (int) value;
+            hexString = String.format("%08x", Integer.reverseBytes(intValue));
+        } else if (value instanceof Long) {
+            long longValue = (long) value;
+            byte[] timestampBytes = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(longValue).array();
+            BigInteger timestampBigInt = new BigInteger(1, timestampBytes);
+            hexString = timestampBigInt.toString(16);
+            if (hexString.length() < 8) {
+                hexString = String.format("%08x", Long.reverseBytes(longValue));
+            }
+            hexString = hexString.substring(0, 8);
+        } else if (value instanceof String) {
+            String stringValue = (String) value;
+            byte[] bytes = hexStringToByteArray(stringValue);
+            reverse(bytes);
+            hexString = byteArrayToHex(bytes);
+        }
+
+        return hexString;
+    }
+
+    private byte[] hexStringToByteArray(String hexString) {
+        int length = hexString.length();
+        byte[] bytes = new byte[length / 2];
+        for (int i = 0; i < length - 1; i += 2) {
+            bytes[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                    + Character.digit(hexString.charAt(i + 1), 16));
+        }
+        return bytes;
+    }
+
+    // Method to convert a byte array to a hexadecimal string
+    private String byteArrayToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    private void reverse(byte[] array) {
+        if (array == null) {
+            return;
+        }
+        int i = 0;
+        int j = array.length - 1;
+        byte tmp;
+        while (j > i) {
+            tmp = array[j];
+            array[j] = array[i];
+            array[i] = tmp;
+            j--;
+            i++;
+        }
+    }
 }
