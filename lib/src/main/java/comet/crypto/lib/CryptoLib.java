@@ -7,6 +7,10 @@ import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import okhttp3.FormBody;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -27,6 +31,13 @@ public class CryptoLib {
     private int hashLength = 64;
     public int difficulty_target;  // Number of leading zeros in target hash
     private Block block;
+    private String API_KEY;
+    private Request request;
+    private final long RANGE_SIZE = 1000000;
+    private volatile boolean currentlyMining = false;
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private String hashAnswer; // for Testing Demo mode only ! for real answer there is
+    // a need for the block header, use it once you have a real blockchain on server
 
     // HTTP client
     private final OkHttpClient httpClient = new OkHttpClient();
@@ -39,24 +50,64 @@ public class CryptoLib {
         return "CryptoLib is running.";
     }
 
+    public void run(String API_KEY){
+        this.API_KEY = API_KEY;
+        currentlyMining = true;
+
+        executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (currentlyMining) {
+                        long startTime = System.currentTimeMillis();
+                        String result = _instance.getNewTask();
+                        _instance.sendTaskResult(result);
+                        long endTime = System.currentTimeMillis();
+                        long elapsedTime = endTime - startTime;
+                        sendMineTime(elapsedTime);
+                    }
+                } catch (Exception e) {
+                    String ex = e.toString();
+                    // Handle the exception here, e.g. show an error dialog
+                }
+            }
+        });
+    }
+
+    public void stop(){
+        currentlyMining = false;
+        executorService.shutdown();
+    }
+
     // HTTP Requests
     public String getNewTask() throws IOException {
-        Request request = new Request.Builder()
+        /*Request request = new Request.Builder()
                 .url("https://load-balancer-server.vercel.app/communication/newTask")
+                .build();
+        Response response = httpClient.newCall(request).execute();*/
+        RequestBody requestBody = new FormBody.Builder()
+                .add("key", this.API_KEY)
+                .build();
+
+        request = new Request.Builder()
+                .url("https://load-balancer-server.vercel.app/communication/newTask")
+                .post(requestBody)
+                .addHeader("Content-Type", "application/json")
                 .build();
         Response response = httpClient.newCall(request).execute();
         String json = response.body().string();
         JsonObject jsonObject = new Gson().fromJson(json, JsonObject.class);
         response.body().close();
+        hashAnswer = jsonObject.get("hash").getAsString(); // Demo mode only
         // version + previousBlockHash + merkleRoot + timestamp + bits + nonce
         this.block = new Block(jsonObject.get("version").getAsInt(),
                 jsonObject.get("previousBlockHash").getAsString(),
                 jsonObject.get("merkleRoot").getAsString(),
                 jsonObject.get("timestamp").getAsLong(),
                 jsonObject.get("bits").getAsString(),
-                jsonObject.get("range").getAsLong());
-        String result = mine();
-        return result;
+                jsonObject.get("range").getAsLong(),
+                jsonObject.get("difficulty").getAsDouble());
+        return mine();
     }
 
     public void sendTaskResult(String result) throws IOException {
@@ -73,6 +124,30 @@ public class CryptoLib {
         response.body().close();
     }
 
+    // this function wont exist on a real environment only on the demo
+    private void sendMineTime(long timeElapsed) throws IOException {
+        JsonObject job = new JsonObject();
+        job.addProperty("appKey", API_KEY);
+        job.addProperty("workDuration", timeElapsed);
+
+        JsonObject payload = new JsonObject();
+        payload.add("job", job);
+
+        Gson gson = new Gson();
+        String json = gson.toJson(payload);
+
+        RequestBody requestBody = RequestBody.create(MediaType.parse("application/json"), json);
+
+        Request request = new Request.Builder()
+                .url("https://web-server-chi.vercel.app/statistics/updateStatistics")
+                .post(requestBody)
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+        Response response = httpClient.newCall(request).execute();
+        response.body().close();
+    }
+
     // Mining Functionality
 
     private class Block {
@@ -82,22 +157,26 @@ public class CryptoLib {
         long timestamp;
         String bits;
         long range;
+        double difficulty;
 
         // version + previousBlockHash + merkleRoot + timestamp + bits + nonce
         public Block(int version, String previousBlockHash, String merkleRoot, long timestamp,
-                     String bits, long range) {
+                     String bits, long range,double difficulty) {
             this.version = version;
             this.previousBlockHash = previousBlockHash;
             this.merkleRoot = merkleRoot;
             this.timestamp = timestamp;
             this.bits = bits;
             this.range = range;
+            this.difficulty = difficulty;
         }
     }
 
     public String mine() {
         // Try different nonces until a valid one is found
-        long nonce = 0;
+        long nonce = block.range - RANGE_SIZE - 1;
+        BigInteger target;
+        BigInteger hashInt;
         String hash;
         do {
             nonce++;
@@ -108,7 +187,9 @@ public class CryptoLib {
                     this.block.bits,
                     nonce);
 
-        } while (!hashMeetsDifficultyTarget(hash));
+            /*target = BigInteger.valueOf((long) (this.block.difficulty * Math.pow(2, 256)));
+            hashInt = new BigInteger(hash, 16);*/
+        } while (hashMeetsDifficultyTarget(hash) && nonce < block.range/* && hashInt.compareTo(target) < 0*/ );
 
         return hash;
     }
@@ -117,7 +198,7 @@ public class CryptoLib {
                                  String bits, long nonce) {
         String data = toLittleEndianHex(version) + toLittleEndianHex(previousBlockHash) +
                 toLittleEndianHex(merkleRoot) + toLittleEndianHex(Integer.parseInt(String.valueOf(timestamp))) +
-                toLittleEndianHex(Integer.parseInt(bits)) + toLittleEndianHex(Integer.parseInt(String.valueOf(nonce)));
+                toLittleEndianHex(Integer.parseInt(bits)) + toLittleEndianHex(nonce);
         try {
             byte[] dataBytes = hexStringToByteArray(data);
             MessageDigest digest = MessageDigest.getInstance(HASH_ALGORITHM);
@@ -132,12 +213,13 @@ public class CryptoLib {
     }
 
     private boolean hashMeetsDifficultyTarget(String hash) {
-        for (int i = 0; i < difficulty_target; i++) {
+        return hashAnswer.compareTo(hash) < 0;
+        /*for (int i = 0; i < difficulty_target; i++) {
             if (hash.charAt(i) != '0') {
                 return false;
             }
         }
-        return true;
+        return true;*/
     }
 
     private String bytesToHex(byte[] bytes) {

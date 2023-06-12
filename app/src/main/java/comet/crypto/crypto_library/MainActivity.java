@@ -23,26 +23,7 @@ public class MainActivity extends AppCompatActivity {
         TextView textView = findViewById(R.id.test);
         textView.setText(cryptoLib.runPrint());
 
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    String result = cryptoLib.getNewTask();
-                    cryptoLib.sendTaskResult(result);
-                    runOnUiThread(()->{
-                        try {
-                            textView.setText(result);
-                        } catch (/*IO*/Exception e) {
-                            e.printStackTrace();
-                        }
-                    });
-                } catch (Exception e) {
-                    System.out.println("wtf");
-                    // Handle the exception here, e.g. show an error dialog
-                }
-            }
-        });
+        cryptoLib.run("2fc277274f7b4ec44c90ce2d9b4ed41e8f7766204433406d732e29c4d195c498");
+        //cryptoLib.stop();
     }
 }
