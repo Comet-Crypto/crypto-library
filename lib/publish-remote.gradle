@@ -40,7 +40,7 @@ afterEvaluate {
                     from components.java
                 }
 
-               // artifact androidSourcesJar
+                // artifact androidSourcesJar
 //                artifact javadocJar
 
                 // Mostly self-explanatory metadata
