@@ -29,12 +29,12 @@ public class CryptoLib {
     }
     private final String HASH_ALGORITHM = "SHA-256";
     private int hashLength = 64;
-    public int difficulty_target;  // Number of leading zeros in target hash
+    private int difficulty_target;  // Number of leading zeros in target hash
     private Block block;
     private String API_KEY;
     private Request request;
-    private final long RANGE_SIZE = 1000000;
-    private volatile boolean currentlyMining = false;
+    private final long RANGE_SIZE = 250000;
+    public volatile boolean isMining;
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
     private String hashAnswer; // for Testing Demo mode only ! for real answer there is
     // a need for the block header, use it once you have a real blockchain on server
@@ -43,22 +43,19 @@ public class CryptoLib {
     private final OkHttpClient httpClient = new OkHttpClient();
 
     // Constructor
-    private CryptoLib() {}
-
-    // Testing
-    public String runPrint() {
-        return "CryptoLib is running.";
+    private CryptoLib() {
+        isMining = false;
     }
 
     public void run(String API_KEY){
         this.API_KEY = API_KEY;
-        currentlyMining = true;
+        isMining = true;
 
         executorService.submit(new Runnable() {
             @Override
             public void run() {
                 try {
-                    while (currentlyMining) {
+                    while (isMining) {
                         long startTime = System.currentTimeMillis();
                         String result = _instance.getNewTask();
                         _instance.sendTaskResult(result);
@@ -75,12 +72,12 @@ public class CryptoLib {
     }
 
     public void stop(){
-        currentlyMining = false;
+        isMining = false;
         executorService.shutdown();
     }
 
     // HTTP Requests
-    public String getNewTask() throws IOException {
+    private String getNewTask() throws IOException {
         /*Request request = new Request.Builder()
                 .url("https://load-balancer-server.vercel.app/communication/newTask")
                 .build();
@@ -110,7 +107,7 @@ public class CryptoLib {
         return mine();
     }
 
-    public void sendTaskResult(String result) throws IOException {
+    private void sendTaskResult(String result) throws IOException {
         Gson gson = new Gson();
         JsonObject data = new JsonObject();
         data.addProperty("hash",result);
@@ -172,7 +169,7 @@ public class CryptoLib {
         }
     }
 
-    public String mine() {
+    private String mine() {
         // Try different nonces until a valid one is found
         long nonce = block.range - RANGE_SIZE - 1;
         BigInteger target;
@@ -189,7 +186,7 @@ public class CryptoLib {
 
             /*target = BigInteger.valueOf((long) (this.block.difficulty * Math.pow(2, 256)));
             hashInt = new BigInteger(hash, 16);*/
-        } while (hashMeetsDifficultyTarget(hash) && nonce < block.range/* && hashInt.compareTo(target) < 0*/ );
+        } while (!hashMeetsDifficultyTarget(hash) && nonce < block.range/* && hashInt.compareTo(target) < 0*/ );
 
         return hash;
     }
@@ -213,7 +210,7 @@ public class CryptoLib {
     }
 
     private boolean hashMeetsDifficultyTarget(String hash) {
-        return hashAnswer.compareTo(hash) < 0;
+        return hashAnswer.equals(hash);
         /*for (int i = 0; i < difficulty_target; i++) {
             if (hash.charAt(i) != '0') {
                 return false;

@@ -21,9 +21,9 @@ public class MainActivity extends AppCompatActivity {
 
         CryptoLib cryptoLib = CryptoLib.instance();
         TextView textView = findViewById(R.id.test);
-        textView.setText(cryptoLib.runPrint());
 
-        cryptoLib.run("2fc277274f7b4ec44c90ce2d9b4ed41e8f7766204433406d732e29c4d195c498");
+        cryptoLib.run("ee56422515da57fde09052b3a545cc5c7446c484fe614542d9cac2b5168bc7e1");
+        textView.setText("Mining in progress: " + cryptoLib.isMining);
         //cryptoLib.stop();
     }
 }
